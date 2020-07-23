@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha256-Md8eaeo67OiouuXAi8t/Xpd8t2+IaJezATVTWbZqSOw=" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <link rel="stylesheet" href="/main.css">
+    <title>KLoCK of Shuba</title>
+    <meta name="description" content="Count the lines in your repositories">
+  </head>
+
+  <body>
+    <nav class="navbar navbar-dark bg-dark box-shadow">
+      <a class="navbar-brand" href="/"><i class="fa fa-list"></i>&nbsp;KLoCK of Shuba</a>
+    </nav>
+
+    <div class="alert alert-danger" role="alert" style="display:none;" id="error"><span id="error-desc"></span> </div>
+
+    <main class="pt-5">
+      <div class="container text-center">
+        <div class="row justify-content-center">
+        {{#if gh_server }}
+        <div class="card shadow rounded p-5">
+         <h3><i class="fa fa-github"></i>&nbsp;GitHub Enterprise</h2>
+         <h5 class="mb-3 font-weight-normal">{{server_url}}</h5>
+         {{#if gh_oauth}}
+         <div class="input-group-btn">
+          <a role="button" class="btn btn-lg btn-dark" href="/gh/oauth?scope=repo">Sign in</a>
+        </div>
+        {{else}}<div>KLoCK requires OAuth to connect to GitHub Enterprise. Please click <a href='{{server_url}}/settings/applications/new'>here</a> to register KLoCK.<br>
+          Set the authorization callback to <span id="thisurl">http://yourhost:port</span>/gh/callback<br>Then restart this app with environment variables GH_OAUTH2_ID and GH_OAUTH2_SECRET set to the values from the registration page.
+        </div>
+        {{/if}}
+        </div>
+        {{else}}
+          <form class="form-signin card shadow rounded p-5" id="signin">
+          <h3><i class="fa fa-bitbucket"></i>&nbsp;Bitbucket</h2>
+          <h5 class="mb-3 font-weight-normal">{{server_url}}</h5>
+          <label for="inputEmail" class="sr-only">Username/email</label>
+          <input type="text" id="inputEmail" class="form-control mb-1" placeholder="User/email address" required autofocus>
+          <label for="inputPassword" class="sr-only">Password</label>
+          <input type="password" id="inputPassword" class="form-control mb-3" placeholder="Password" required>
+          <button class="btn btn-lg btn-dark btn-block" type="submit" id="signin-btn">Sign in</button>
+          </form>
+        {{/if}}
+      </div>
+      </div>
+      </main>
+
+      <footer class="footer">
+        <div class="container">
+          <div class="row">
+            <div class="col-md-4"><span class="text-muted mr-2">{{version}}</span><a class="text-dark mr-2" href="https://github.com/alexivkin/klock#readme">Documentation</a><a class="text-dark" href="https://github.com/alexivkin/klock">Source</a></div>
+            <div class="col-md-8 text-right">
+              <div class="text-muted">Created with &hearts;&nbsp;by&nbsp;<a class="text-dark" href="https://ivkin.net">Alex Ivkin</a>.</div>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.js" integrity="sha256-fNXJFIlca05BIO2Y5zh1xrShK3ME+/lYZ0j+ChxX2DA=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha256-xaF9RpdtRxzwYMWg4ldJoyPWqyDPCRD0Cv7YEEe6Ie8=" crossorigin="anonymous"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.18.0/axios.min.js" integrity="sha256-mpnrJ5DpEZZkwkE1ZgkEQQJW/46CSEh/STrZKOB/qoM=" crossorigin="anonymous"></script>
+
+    <script>
+    if(typeof(EventSource) == "undefined") {
+      $('#error-desc').text("No support for SSE. Switch to a modern browser, and not Edge");
+      $('#error').show();
+      $('#signin').hide()
+    } else {
+      // $("#signin-btn").on('click', e => {
+      //   e.preventDefault();
+      $('#thisurl').text(window.location.href.split('/').slice(0, 3).join('/'))
+
+      $("#signin").on('submit',function(e){
+        e.preventDefault(); // stop form submit to do the input validation
+        var username = $('#inputEmail').val();
+        var password = $('#inputPassword').val();
+        $("#signin-btn").html("<i class='fa fa-spinner fa-pulse fa-2x fa-fw'></i>")
+        // TODO GH Enterprise support
+        axios.post('/bb/auth', { username, password })
+        .then(function (response) {
+          // console.log(response)
+          location.href = '/bb/'+response.data
+        })
+        .catch(error => {
+          // Error
+          if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            console.log(error.response.data);
+            if (error.response.data['status-code'])
+              $('#error-desc').text(error.response.data['status-code']+' : '+error.response.data.message)
+            else if (error.response.data.status)
+              $('#error-desc').text(error.response.data.status+' : '+error.response.data.message)
+            else
+              $('#error-desc').text(error.response.status+' : '+error.response.data.errors[0].message)
+            // console.log(error.response.status);
+            // console.log(error.response.headers);
+          } else if (error.request) {
+            // The request was made but no response was received
+            // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+            // http.ClientRequest in node.js
+            // console.log(error.request);
+            $('#error-desc').text("Can't connect :"+error.request);
+          } else {
+            // Something happened in setting up the request that triggered an Error
+            // console.log('Error', error.message);
+            $('#error-desc').text("Error : "+error.message);
+          }
+          $('#error').show();
+          $("#signin-btn").text("Sign in")
+        })
+      })
+    }
+    </script>
+
+</body>
+</html>

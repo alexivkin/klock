@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha256-Md8eaeo67OiouuXAi8t/Xpd8t2+IaJezATVTWbZqSOw=" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <link rel="stylesheet" href="/main.css">
+    <title>KLoCK of Shuba</title>
+    <meta name="description" content="Count the lines in your repositories">
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-dark bg-dark navbar-expand-md bg-faded justify-content-center">
+        <a class="navbar-brand d-flex w-50 mr-auto" href="/"><span class="fa fa-list"></span>&nbsp;KLoCK of Shuba</a>
+        <div class="navbar-collapse collapse w-100" id="collapsingNavbar3">
+            <ul class="nav navbar-nav ml-auto w-100 justify-content-end">
+                <li class="nav-item">
+                    <span id="user" class="navbar-text text-light authed-nav"></span>
+                </li>
+                <li class="nav-item"><a class="nav-link authed-nav" href="/signout">Sign out</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="pt-5 text-center">
+      <div class="container">
+        <h1 id="engine" class="display-4 bold"></h1>
+        <h4 id="server"></h4>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="row mb-2">
+        <div class="col-md-6"><span class="align-middle bold mr-2">Repositories<span class="bold ml-2" id="repocount"></span></span>
+          <button type="button" id="check-all" class="btn btn-sm btn-light" data-scan>Select all</button>
+          <button type="button" id="uncheck-all" class="btn btn-sm btn-light" data-scan>Deselect all</button>
+        </div>
+        <div class="col-md-6 text-right">
+          <button id="scan-all" class="btn btn-outline-dark" data-scan>Scan selected</button>
+          <button id="download" class="btn btn-outline-dark" disabled><i class="fa fa-download"></i>&nbsp;Get all</button>
+        </div>
+      </div>
+
+      <!-- style="display: none;" -->
+      <div class="list-group" id="repolist">
+        <div class="row">
+          <div class="col-md-12 text-center"><i class='fa fa-spinner fa-pulse fa-3x fa-fw'></i></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-2"><a class="text-dark" href="https://github.com/alexivkin/klock#readme">Documentation</a></div>
+          <div class="col-md-2"><a class="text-dark" href="https://github.com/alexivkin/klock">Source</a></div>
+          <div class="col-md-8 text-right">
+            <div class="text-muted">Created with &hearts;&nbsp;by&nbsp;<a class="text-dark" href="https://ivkin.net">Alex Ivkin</a>.</div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.js" integrity="sha256-fNXJFIlca05BIO2Y5zh1xrShK3ME+/lYZ0j+ChxX2DA=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha256-xaF9RpdtRxzwYMWg4ldJoyPWqyDPCRD0Cv7YEEe6Ie8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js" integrity="sha256-+JMHsXRyeTsws/tzbIh5YHQxRdKCuNjmvNcTFtY6DLc=" crossorigin="anonymous"></script>
+
+    <script src="/client.js"></script>
+
+    <!-- {{debug}} -->
+    <!-- Handlebars template for the repo list -->
+    <script id="repos-template" type="text/x-handlebars-template">
+      {{#each repos}}
+    <div class="row mb-2">
+      <div class="col-md-4">
+        <div class="input-group">
+          <div class="form-check mb-2 mr-sm-2">
+            <input class="form-check-input" type="checkbox" id="chk-{{this.name}}/{{this.default_branch}}" name="repomark" checked>
+            <label class="form-check-label align-middle" for="chk-{{this.name}}/{{this.default_branch}}">{{this.full_name}}</label>
+            {{#if this.private }}<span class="badge badge-light">Private</span>{{/if}}
+            {{#if this.public }}<span class="badge badge-light">Public</span>{{/if}}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-7">
+      <div class="progress" id="progress-{{this.name}}/{{this.default_branch}}">
+        <!-- <div id="zipbar-{{this.name}}" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div> -->
+        <div id="scanbar-{{this.name}}/{{this.default_branch}}" class="progress-bar bg-secondary progress-bar-striped" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+      <div id="results-{{this.name}}/{{this.default_branch}}" style="display: none;">Results</div>
+    </div>
+      <div class="col-md-1 text-right">
+        <button id="btn-{{this.name}}/{{this.default_branch}}" class="btn btn-outline-dark" data-scan>Scan</button>
+      </div>
+    </div>
+    {{/each}}
+  </script>
+
+  </body>
+</html>
