@@ -437,8 +437,8 @@ module.exports = {
   },
 
   SignOut: (req, res) => {
-    ok.authenticate({ type : 'oauth', token : "0" }); // invalidate the header
-    bi.authenticate({ type : 'oauth', token : "0" }); // invalidate the header
+    //ok.authenticate({ type : 'oauth', token : "0" }); // invalidate the header
+    //bi.authenticate({ type : 'oauth', token : "0" }); // invalidate the header
     req.session.destroy() // ()=>{}
     res.redirect(req.baseUrl + '/')
   }
