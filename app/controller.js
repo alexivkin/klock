@@ -17,11 +17,8 @@ const extract = require('extract-zip')
 const pjson = require('../package.json'); // for the package version
 const debug = require('debug')('controller')
 
-// var qs = require('querystring');  qs.stringify( qs.parse
-
 const conf = new configstore(pkg.name);
-const ok = gh.getInstance();
-const bi = bb.getInstance();
+let bi = bb.getInstance(); // this aint gonna work anymore
 
 module.exports = {
 
@@ -153,28 +150,30 @@ module.exports = {
             res.send('OAuth2 error: '+rr.data.error_description)
             return
           }
-          //          ok.authenticate({ type : 'oauth', token : rr.data.access_token });  // does nothing but sets internal state
-          // inject auth
-          ok.hook.wrap("request",(f, request)=>{
-    			request.headers.authorization = `bearer ${rr.data.access_token}`;
-    			return f(request);
-    		})
-
-          //ok.auth({ type:'token',tokenType:'oauth',token: rr.data.access_token }).then(ress=>{
-          ok.users.getAuthenticated().then(result => {
-            // debug(result)
-            req.session.authed=true
-            req.session.engine="gh"
-            req.session.user=result.data.login
-            req.session.access_token=rr.data.access_token
-            req.session.repostats={} // init
-            // also have data.scope and data.token_type
-            res.redirect('/gh/'+req.session.user)
+            let ok = new gh.Github();
+            // inject auth
+            ok.octokit.hook.wrap("request",(f, request)=>{
+              request.headers.authorization = `bearer ${rr.data.access_token}`;
+              return f(request);
+            })
+            // debug(ok)
+            //ok.auth({ type:'token',tokenType:'oauth',token: rr.data.access_token }).then(ress=>{
+            ok.octokit.users.getAuthenticated().then(authres => {
+              // debug(authres)
+              req.session.authed=true
+              req.session.engine="gh"
+              req.session.user=authres.data.login
+              req.session.access_token=rr.data.access_token
+              // req.session.random=Math.floor(Math.random() * Math.floor(1000))
+              req.session.repostats={} // init
+              // also have data.scope and data.token_type
+              res.redirect('/gh/'+req.session.user)
+            }).catch(err => {
+              res.send('OAuth fine, but no cigar on the user: '+err)
+              debug(err.stack)
+            })
           }).catch(err => {
-            res.send('OAuth fine, but no cigar on the user: '+err)
-          })
-        }).catch(err => {
-          res.send('Cant get the OAuth code: '+err)
+            res.send('Cant get the OAuth code: '+err)
         })
       } else {
         // https://developer.atlassian.com/cloud/bitbucket/oauth-2/
@@ -219,29 +218,30 @@ module.exports = {
   },
 
   Main: (req , res) => {
-    if (!req.session.authed){
+    if (!req.session.authed || req.params.user != req.session.user){
       res.redirect(req.baseUrl + '/')
     } else
       res.sendFile(path.resolve(__dirname + '/../public/repos.html'));
   },
 
-
-  // app.get('/gh/:user/repos', async (req, res) => {
-  //   var socket = new sse(req, res);
-  //   try {
-  //     repos = await gh.getRepos()
-  //     for (r in repos)
-  //       socket.emit("repos", r.name)
-  //     socket.emit("repos", res.length)
-  //   } catch (err) {
-  //     socket.emit("repos", "Nope: "+JSON.stringify(err))
-  //   }
-  // })
   GetRepos: (req, res, next) => {
+    if (!req.session.authed) {
+      res.redirect(req.baseUrl + '/')
+      return
+    }
     var socket = new sse(req, res);
-    // debug(bb)
 
-    let engine= req.params.eng == 'gh' ? gh : bb
+    let engine
+    if (req.params.eng == 'gh') {
+      engine = new gh.Github();
+      // inject auth
+      engine.octokit.hook.wrap("request",(f, request)=>{
+        request.headers.authorization = `bearer ${req.session.access_token}`;
+        return f(request);
+      })
+    } else {
+      engine=bb //broken
+    }
     engine.getRepos().then(repos => {
         // debug(repos)
         // for (r of repos)
@@ -255,7 +255,21 @@ module.exports = {
   },
 
   ScanRepo: async (req, res, next) => {
-    // if (typeof(module.exports.socket) == 'undefined')
+    if (!req.session.authed) {
+      res.redirect(req.baseUrl + '/')
+      return
+    }
+    let engine
+    if (req.params.eng == 'gh') {
+      engine = new gh.Github();
+      // inject auth
+      engine.octokit.hook.wrap("request",(f, request)=>{
+        request.headers.authorization = `bearer ${req.session.access_token}`;
+        return f(request);
+      })
+    } else {
+      engine=bb //broken
+    }
     var socket = new sse(req, res);
     debug(`Scan requested for ${req.params.user}/${req.params.repo}/${req.params.branch}`)
 
@@ -410,6 +424,10 @@ module.exports = {
   },
 
   DownloadRepoStats: async (req, res) => {
+    if (!req.session.authed) {
+      res.redirect(req.baseUrl + '/')
+      return
+    }
     // ${req.params.eng}-
     let name=`${req.params.user}-${req.params.repo}-${req.params.branch}`
     // debug(req.session.repostats)
@@ -427,6 +445,10 @@ module.exports = {
   },
 
   DownloadAllStats: async (req, res) => {
+    if (!req.session.authed) {
+      res.redirect(req.baseUrl + '/')
+      return
+    }
     // let allstream = new streams.ReadableStream(req.session.repostats);
     res.set('Content-disposition', `attachment; filename=klock.json`);
     res.set('Content-type', 'application/json');
